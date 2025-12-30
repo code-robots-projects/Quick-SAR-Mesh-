@@ -3,53 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>868MHz Fresnel Link Planner</title>
+    <title>868MHz Fresnel Mesh Planner</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #2c3e50; --mesh-blue: #3498db; --danger: #e74c3c; --warning: #f1c40f; --success: #2ecc71; }
-        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100vw; z-index: 1; }
+        :root { 
+            --primary: #2c3e50; 
+            --mesh-blue: #3498db; 
+            --danger: #e74c3c; 
+            --warning: #f1c40f; 
+            --success: #2ecc71; 
+            --bg: #f8f9fa;
+            --accent: #9b59b6;
+        }
+        body { margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: var(--bg); }
+        
+        #map { height: 100vh; width: 100vw; z-index: 1; transition: filter 0.5s ease; }
         
         #controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; background: white; padding: 15px; border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 90%; max-width: 480px;
+            z-index: 1000; background: white; padding: 18px; border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 90%; max-width: 480px;
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .legend { display: flex; gap: 10px; font-size: 0.7rem; font-weight: bold; }
+        .title-group h1 { font-size: 1rem; margin: 0; color: var(--primary); font-weight: 800; letter-spacing: -0.5px; }
+        .title-group p { font-size: 0.65rem; margin: 0; color: #7f8c8d; text-transform: uppercase; font-weight: 600; }
         
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
-        .btn-main { background: var(--mesh-blue); color: white; }
-        .btn-alt { background: #dfe6e9; color: var(--primary); }
+        .status-badge { font-size: 0.7rem; font-weight: 800; padding: 4px 8px; border-radius: 20px; background: #eee; transition: all 0.3s; }
         
-        #link-stats { 
-            margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
-            font-size: 0.8rem; display: none;
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        button { 
+            padding: 12px; border: none; border-radius: 10px; cursor: pointer; 
+            font-weight: 700; font-size: 0.75rem; transition: all 0.2s ease;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-main { background: var(--mesh-blue); color: white; }
+        .btn-calc { background: var(--success); color: white; grid-column: span 2; display: none; }
+        .btn-alt { background: #f1f2f6; color: var(--primary); }
+        .btn-export { background: #34495e; color: white; }
+
+        #processing-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.4); z-index: 1500;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); pointer-events: none;
+        }
+        
+        .loader-box { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; min-width: 280px; }
+
+        #prompt-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.8); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal { background: white; padding: 25px; border-radius: 20px; text-align: center; max-width: 300px; }
+        .modal input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #eee; border-radius: 10px; font-size: 1rem; text-align: center; }
+
+        #mesh-summary { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; font-size: 0.85rem; display: none; }
+        .log { max-height: 80px; overflow-y: auto; font-size: 0.75rem; color: #666; margin-top: 5px; background: #fdfdfd; padding: 8px; border-radius: 4px; border: 1px solid #eee; }
+        
+        #profile-viewer {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 600px; background: white; z-index: 2000;
+            border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            display: none; padding: 15px;
+        }
+        #profile-canvas { width: 100%; height: 150px; background: #f9f9f9; border-radius: 8px; }
+
+        .repeater-pulse { 
+            background: var(--accent); border-radius: 50%; 
+            box-shadow: 0 0 0 rgba(155, 89, 182, 0.4); 
+            animation: pulse 2s infinite; 
+            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;
+            border: 2px solid white;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); } 100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); } }
     </style>
 </head>
 <body>
 
+<div id="processing-overlay">
+    <div class="loader-box">
+        <div style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">MESH SOLVER ACTIVE</div>
+        <div id="proc-label" style="font-size: 0.8rem; color: #666; margin-top: 10px;">Scouting Terrain Pivots...</div>
+        <div style="width: 100%; background: #eee; height: 4px; border-radius: 2px; margin-top: 15px; overflow: hidden;">
+            <div id="proc-bar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.3s;"></div>
+        </div>
+        <div id="proc-sub-label" style="font-size: 0.65rem; color: #999; margin-top: 8px;">Tracing valley corridors...</div>
+    </div>
+</div>
+
+<div id="prompt-overlay">
+    <div class="modal">
+        <h3>Mesh Setup</h3>
+        <p style="font-size: 0.8rem; color: #666;">Target Nodes?</p>
+        <input type="number" id="node-count-input" value="2" min="1" max="10">
+        <button class="btn-main" style="width: 100%" onclick="confirmNodeCount()">Begin Mission</button>
+    </div>
+</div>
+
+<div id="profile-viewer">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span id="profile-title" style="font-weight:800; font-size:0.8rem;">LINK ANALYSIS</span>
+        <button onclick="closeProfile()" style="padding:4px 8px; font-size:10px;">CLOSE</button>
+    </div>
+    <canvas id="profile-canvas"></canvas>
+</div>
+
 <div id="controls">
     <div class="header">
-        <h1 style="font-size: 1rem; margin:0;">868MHz Link Analyzer</h1>
-        <div class="legend">
-            <span style="color: var(--success)">● Clear</span>
-            <span style="color: var(--warning)">● Marginal</span>
-            <span style="color: var(--danger)">● Blocked</span>
+        <div class="title-group">
+            <h1>Mesh Topology Planner</h1>
+            <p id="ui-subtitle">Define Command Center</p>
         </div>
+        <div id="step-badge" class="status-badge">STEP 1</div>
     </div>
     
+    <div id="mesh-summary">
+        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+            <span>Network Health</span>
+            <span id="mesh-status-text" style="color: #7f8c8d">Standby</span>
+        </div>
+        <div id="mesh-log" class="log"></div>
+    </div>
+
     <div class="btn-group">
-        <button class="btn-main" onclick="useMyLocation()">📍 ADD NODE AT GPS</button>
-        <button class="btn-alt" onclick="resetApp()">🗑️ CLEAR ALL</button>
-    </div>
-    
-    <div id="link-stats">
-        <b>Link Analysis (868 MHz):</b><br>
-        <span id="stat-dist">-</span> | <span id="stat-status">Place 2nd node</span>
+        <button class="btn-main" id="add-node-btn" onclick="triggerAddNode()">📍 Place Node</button>
+        <button class="btn-alt" onclick="resetApp()">🗑️ Reset All</button>
+        <button class="btn-export" id="export-btn" onclick="exportKML()" disabled>💾 Export KML</button>
+        <button class="btn-alt" onclick="resetMapOnly()">🔄 Clear Map</button>
+        <button class="btn-calc" id="calc-btn" onclick="runMeshOptimization()">⚡ PERSISTENT SOLVE</button>
     </div>
 </div>
 
@@ -57,18 +142,37 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    let map, nodes = [], links = [], tileCache = new Map();
-    const ANT_H = 2.0; // 2 Meters
-    const FREQ = 868; // MHz
+    let map, tileCache = new Map();
+    let nodes = []; 
+    let repeaters = []; 
+    let polylines = [];
+    let existingLinkKeys = new Set(); 
+    let connectedNodeIds = new Set([0]); 
+    let targetNodeCount = 0;
+    let currentStep = 'BASE';
+    let repeaterCounter = 1;
+    
+    const ANT_H = 10.0;
+    const FREQ_GHZ = 0.868;
+    const EARTH_K = 1.333;
+    const EARTH_R = 6371;
     const ZOOM_LEVEL = 12;
 
+    const COLORS = {
+        primary: '#2c3e50',
+        meshBlue: '#3498db',
+        danger: '#e74c3c',
+        warning: '#f1c40f',
+        success: '#2ecc71',
+        accent: '#9b59b6'
+    };
+
     function init() {
-        map = L.map('map', { zoomControl: false }).setView([-33.95, 18.46], 13);
+        map = L.map('map', { zoomControl: false, tap: true }).setView([-33.95, 18.85], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        map.on('click', (e) => addNode(e.latlng));
+        map.on('click', (e) => handleMapInput(e.latlng));
     }
 
-    // --- MATH ENGINE ---
     const decodeHeight = (r, g, b) => (r * 256 + g + b / 256) - 32768;
     const lon2tile = (lon, z) => Math.floor((lon + 180) / 360 * Math.pow(2, z));
     const lat2tile = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
@@ -78,17 +182,19 @@
         const y = lat2tile(lat, ZOOM_LEVEL);
         const key = `${ZOOM_LEVEL}/${x}/${y}`;
         if (!tileCache.has(key)) {
-            const img = new Image(); img.crossOrigin = "Anonymous";
-            await new Promise(r => { 
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 256; canvas.height = 256;
-                    canvas.getContext('2d').drawImage(img, 0, 0);
-                    tileCache.set(key, canvas); r();
-                };
-                img.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${ZOOM_LEVEL}/${x}/${y}.png`;
-                img.onerror = () => r();
-            });
+            try {
+                const img = new Image(); img.crossOrigin = "Anonymous";
+                await new Promise((res, rej) => {
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 256; canvas.height = 256;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        tileCache.set(key, canvas); res();
+                    };
+                    img.onerror = rej;
+                    img.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${ZOOM_LEVEL}/${x}/${y}.png`;
+                });
+            } catch (e) { return 0; }
         }
         const canvas = tileCache.get(key);
         if (!canvas) return 0;
@@ -96,68 +202,286 @@
         const n = Math.pow(2, ZOOM_LEVEL);
         const px = Math.floor(((lng + 180) / 360 * n % 1) * 256);
         const py = Math.floor(((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n % 1) * 256);
-        return decodeHeight(...ctx.getImageData(px, py, 1, 1).data.slice(0,3));
+        const p = ctx.getImageData(px, py, 1, 1).data;
+        return decodeHeight(p[0], p[1], p[2]);
     }
 
-    // --- FRESNEL & PATH ANALYSIS ---
-    async function analyzeLink(p1, p2) {
-        const distTotal = p1.distanceTo(p2);
-        const samples = 15; // Number of points to check along the line
-        let worstClearance = 1.0; 
+    function triggerAddNode() {
+        if (currentStep === 'OPTIMIZING') return;
+        map.locate({setView: true, maxZoom: 12});
+        map.once('locationfound', (e) => handleMapInput(e.latlng));
+    }
+
+    async function handleMapInput(latlng) {
+        if (currentStep === 'BASE') {
+            const marker = L.circleMarker(latlng, { radius: 12, color: 'white', fillColor: COLORS.primary, fillOpacity: 1, weight: 3 }).addTo(map);
+            nodes.push({ latlng, marker, type: 'BASE', id: 0 });
+            showCountModal();
+        } else if (currentStep === 'NODES') {
+            const marker = L.circleMarker(latlng, { radius: 10, color: 'white', fillColor: COLORS.meshBlue, fillOpacity: 1, weight: 2 }).addTo(map);
+            nodes.push({ latlng, marker, type: 'FIELD', id: nodes.length });
+            if (nodes.length - 1 === targetNodeCount) {
+                currentStep = 'READY_CALC';
+                document.getElementById('add-node-btn').style.display = 'none';
+                document.getElementById('calc-btn').style.display = 'flex';
+                updateUI(`Topology Ready`, `GO`, COLORS.success);
+            } else {
+                updateUI(`Place ${targetNodeCount - (nodes.length - 1)} More`, `STEP 2`, COLORS.meshBlue);
+            }
+        }
+    }
+
+    function showCountModal() { document.getElementById('prompt-overlay').style.display = 'flex'; }
+    function confirmNodeCount() {
+        targetNodeCount = parseInt(document.getElementById('node-count-input').value);
+        document.getElementById('prompt-overlay').style.display = 'none';
+        currentStep = 'NODES';
+        document.getElementById('mesh-summary').style.display = 'block';
+        updateUI(`Place ${targetNodeCount} Field Nodes`, `STEP 2`, COLORS.meshBlue);
+    }
+
+    async function runMeshOptimization() {
+        document.getElementById('processing-overlay').style.display = 'flex';
+        document.getElementById('calc-btn').disabled = true;
+        currentStep = 'OPTIMIZING';
+        connectedNodeIds = new Set([0]);
         
+        // Clear old calculated items from map
+        repeaters.forEach(r => map.removeLayer(r.marker));
+        polylines.forEach(p => map.removeLayer(p));
+        repeaters = []; 
+        polylines = [];
+        repeaterCounter = 1;
+        existingLinkKeys = new Set(); 
+        
+        logToMesh(`Initiating valley-aware recursive solver...`);
+        const landmarks = await scoutRegionalTerrain(15000); 
+        
+        const fieldNodes = nodes.slice(1);
+        for (let i = 0; i < fieldNodes.length; i++) {
+            const target = fieldNodes[i];
+            const progress = Math.floor(((i) / fieldNodes.length) * 100);
+            document.getElementById('proc-bar').style.width = `${progress}%`;
+            document.getElementById('proc-label').innerText = `Solving Node ${target.id}`;
+            await recursivePivotSolve(nodes[0], target, landmarks, 0);
+        }
+
+        // Orphans scan
+        for (let target of fieldNodes) {
+            if (!connectedNodeIds.has(target.id)) {
+                const established = [...nodes.filter(n => connectedNodeIds.has(n.id) && n.id !== target.id), ...repeaters];
+                for (let pt of established) {
+                    const link = await calculatePath(pt.latlng, target.latlng);
+                    if (link.clearance > 0.4) {
+                        await drawInteractiveLink(pt.latlng, target.latlng);
+                        connectedNodeIds.add(target.id);
+                        break;
+                    }
+                }
+            }
+        }
+
+        document.getElementById('processing-overlay').style.display = 'none';
+        document.getElementById('export-btn').disabled = false;
+        updateUI("Network Finalized", "DONE", COLORS.success);
+        const health = Math.round((connectedNodeIds.size / nodes.length) * 100);
+        document.getElementById('mesh-status-text').innerText = `${health}% Mesh Health`;
+    }
+
+    async function scoutRegionalTerrain(radiusMeters) {
+        const bounds = nodes.reduce((acc, n) => ({
+            minLat: Math.min(acc.minLat, n.latlng.lat),
+            maxLat: Math.max(acc.maxLat, n.latlng.lat),
+            minLng: Math.min(acc.minLng, n.latlng.lng),
+            maxLng: Math.max(acc.maxLng, n.latlng.lng)
+        }), { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity });
+
+        const buffer = radiusMeters / 111320; 
+        const latSteps = 20, lngSteps = 20; 
+        let landmarks = [];
+        for(let i=0; i<=latSteps; i++) {
+            for(let j=0; j<=lngSteps; j++) {
+                const lat = bounds.minLat - buffer + ((bounds.maxLat - bounds.minLat + buffer*2) * (i/latSteps));
+                const lng = bounds.minLng - buffer + ((bounds.maxLng - bounds.minLng + buffer*2) * (j/lngSteps));
+                const alt = await getElevation(lat, lng);
+                landmarks.push({ latlng: L.latLng(lat, lng), alt });
+            }
+        }
+        return landmarks.sort((a,b) => b.alt - a.alt);
+    }
+
+    async function recursivePivotSolve(source, target, landmarks, depth) {
+        if (depth > 4) return false;
+        const direct = await calculatePath(source.latlng, target.latlng);
+        if (direct.clearance > 0.4) {
+            await drawInteractiveLink(source.latlng, target.latlng);
+            connectedNodeIds.add(target.id);
+            return true;
+        }
+
+        // Peak Relay
+        const peaks = landmarks.slice(0, 100);
+        for (let lm of peaks) {
+            if ((await calculatePath(source.latlng, lm.latlng)).clearance > 0.5) {
+                if ((await calculatePath(lm.latlng, target.latlng)).clearance > 0.5) {
+                    const rep = createRepeater(lm);
+                    await drawInteractiveLink(source.latlng, rep.latlng);
+                    await drawInteractiveLink(rep.latlng, target.latlng);
+                    connectedNodeIds.add(target.id);
+                    return true;
+                }
+            }
+        }
+
+        // Valley Gateways
+        const gateways = landmarks.slice(100, 250); 
+        for (let lm of gateways) {
+            if ((await calculatePath(source.latlng, lm.latlng)).clearance > 0.5) {
+                const rep = createRepeater(lm);
+                await drawInteractiveLink(source.latlng, rep.latlng);
+                if (await recursivePivotSolve(rep, target, landmarks, depth + 1)) return true;
+            }
+        }
+        return false;
+    }
+
+    function createRepeater(data) {
+        const existing = repeaters.find(r => r.latlng.distanceTo(data.latlng) < 500);
+        if (existing) return existing;
+        const icon = L.divIcon({ className: 'repeater-pulse', html: `<span>${repeaterCounter++}</span>`, iconSize: [26, 26] });
+        const marker = L.marker(data.latlng, { icon }).addTo(map);
+        const rep = { latlng: data.latlng, marker, id: `R${repeaterCounter-1}`, alt: data.alt };
+        repeaters.push(rep);
+        logToMesh(`Relay R${repeaterCounter-1} active @ ${data.alt.toFixed(0)}m`);
+        return rep;
+    }
+
+    async function calculatePath(p1, p2) {
+        const dist = p1.distanceTo(p2);
+        const samples = 45; 
+        let minClearance = 100, points = [];
         const h1 = await getElevation(p1.lat, p1.lng) + ANT_H;
         const h2 = await getElevation(p2.lat, p2.lng) + ANT_H;
 
-        for (let i = 1; i < samples; i++) {
-            const fraction = i / samples;
-            const lat = p1.lat + (p2.lat - p1.lat) * fraction;
-            const lng = p1.lng + (p2.lng - p1.lng) * fraction;
-            
-            const d1 = distTotal * fraction;
-            const d2 = distTotal * (1 - fraction);
+        for (let i = 0; i <= samples; i++) {
+            const f = i / samples;
+            const lat = p1.lat + (p2.lat - p1.lat) * f;
+            const lng = p1.lng + (p2.lng - p1.lng) * f;
             const terrainH = await getElevation(lat, lng);
-            
-            // Earth Curvature
-            const curv = (d1 * d2) / (2 * 1.333 * 6371 * 1000);
-            
-            // Fresnel Radius Calculation
-            // $$R = 17.32 \cdot \sqrt{\frac{d_1 \cdot d_2}{f \cdot D}}$$
-            const fRadius = 17.32 * Math.sqrt(( (d1/1000) * (d2/1000) ) / ( (FREQ/1000) * (distTotal/1000) ));
-            
-            // Height of the LOS ray at this point
-            const rayH = h1 + (h2 - h1) * fraction - curv;
-            
-            const clearance = (rayH - terrainH) / fRadius;
-            if (clearance < worstClearance) worstClearance = clearance;
+            const d1 = dist * f;
+            const d2 = dist * (1 - f);
+            const curv = (d1 * d2) / (2 * EARTH_K * EARTH_R * 1000);
+            const fRadius = 17.32 * Math.sqrt(((d1/1000)*(d2/1000))/(FREQ_GHZ*(dist/1000)));
+            const rayH = h1 + (h2 - h1) * f - curv;
+            const clearance = (rayH - terrainH) / (fRadius || 1);
+            if (clearance < minClearance) minClearance = clearance;
+            points.push({ terrainH, rayH, fRadius, dist: d1 });
         }
-
-        let color = 'var(--success)';
-        let status = 'Clear (LOS)';
-        if (worstClearance < 0) { color = 'var(--danger)'; status = 'Blocked by Terrain'; }
-        else if (worstClearance < 0.6) { color = 'var(--warning)'; status = 'Fresnel Obstruction'; }
-
-        document.getElementById('link-stats').style.display = 'block';
-        document.getElementById('stat-dist').innerText = (distTotal/1000).toFixed(2) + ' km';
-        document.getElementById('stat-status').innerText = status;
-        document.getElementById('stat-status').style.color = color;
-
-        return color;
+        return { color: minClearance < 0 ? COLORS.danger : (minClearance < 0.5 ? COLORS.warning : COLORS.success), clearance: minClearance, points, dist };
     }
 
-    async function addNode(latlng) {
-        const node = L.circleMarker(latlng, { radius: 8, color: '#2c3e50', fillColor: '#3498db', fillOpacity: 1 }).addTo(map);
-        nodes.push(node);
+    async function drawInteractiveLink(p1, p2, weight = 4, opacity = 0.8) {
+        const key = [p1.lat, p1.lng, p2.lat, p2.lng].sort().join(',');
+        if (existingLinkKeys.has(key)) return;
+        const path = await calculatePath(p1, p2);
+        existingLinkKeys.add(key);
+        const poly = L.polyline([p1, p2], { color: path.color, weight, opacity }).addTo(map);
+        poly.on('click', (e) => { L.DomEvent.stopPropagation(e); showProfile(path); });
+        polylines.push(poly);
+    }
 
-        if (nodes.length > 1) {
-            const prevNode = nodes[nodes.length - 2].getLatLng();
-            const color = await analyzeLink(prevNode, latlng);
-            L.polyline([prevNode, latlng], { color: color, weight: 4, opacity: 0.8 }).addTo(map);
-        }
+    function showProfile(path) {
+        const panel = document.getElementById('profile-viewer');
+        const canvas = document.getElementById('profile-canvas');
+        panel.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width = canvas.offsetWidth;
+        const h = canvas.height = canvas.offsetHeight;
+        const allHeights = path.points.flatMap(p => [p.terrainH, p.rayH + p.fRadius, p.rayH - p.fRadius]);
+        const minH = Math.min(...allHeights) - 20;
+        const maxH = Math.max(...allHeights) + 20;
+        const range = maxH - minH;
+        const getY = (v) => h - ((v - minH) / range) * h;
+        const getX = (d) => (d / path.dist) * w;
+        
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = 'rgba(230, 126, 34, 0.2)';
+        ctx.beginPath();
+        path.points.forEach((p, i) => { if (i === 0) ctx.moveTo(getX(p.dist), getY(p.rayH + p.fRadius * 0.6)); else ctx.lineTo(getX(p.dist), getY(p.rayH + p.fRadius * 0.6)); });
+        for (let i = path.points.length - 1; i >= 0; i--) ctx.lineTo(getX(path.points[i].dist), getY(path.points[i].rayH - path.points[i].fRadius * 0.6));
+        ctx.closePath(); ctx.fill();
+        
+        ctx.fillStyle = '#95a5a6';
+        ctx.beginPath(); ctx.moveTo(0, h);
+        path.points.forEach(p => ctx.lineTo(getX(p.dist), getY(p.terrainH)));
+        ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+        
+        ctx.strokeStyle = COLORS.meshBlue; ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(0, getY(path.points[0].rayH)); ctx.lineTo(w, getY(path.points[path.points.length-1].rayH)); ctx.stroke();
+    }
+
+    function exportKML() {
+        let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>868MHz Mesh Export</name>
+    <Style id="base"><IconStyle><color>ff503e2c</color><scale>1.2</scale></IconStyle></Style>
+    <Style id="node"><IconStyle><color>ffdb9834</color></IconStyle></Style>
+    <Style id="relay"><IconStyle><color>ffb6599b</color></IconStyle></Style>`;
+
+        nodes.forEach((n, i) => {
+            kml += `
+    <Placemark>
+      <name>${n.type} ${i}</name>
+      <styleUrl>#${n.type === 'BASE' ? 'base' : 'node'}</styleUrl>
+      <Point><coordinates>${n.latlng.lng},${n.latlng.lat},0</coordinates></Point>
+    </Placemark>`;
+        });
+
+        repeaters.forEach((r, i) => {
+            kml += `
+    <Placemark>
+      <name>Relay ${r.id}</name>
+      <description>Altitude: ${r.alt.toFixed(1)}m</description>
+      <styleUrl>#relay</styleUrl>
+      <Point><coordinates>${r.latlng.lng},${r.latlng.lat},0</coordinates></Point>
+    </Placemark>`;
+        });
+
+        kml += `\n  </Document>\n</kml>`;
+        
+        const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'mesh_nodes.kml'; a.click();
     }
 
     function resetApp() { location.reload(); }
-    function useMyLocation() { map.locate({setView: true, maxZoom: 14}); map.on('locationfound', (e) => addNode(e.latlng)); }
+    
+    function resetMapOnly() {
+        nodes.forEach(n => map.removeLayer(n.marker));
+        repeaters.forEach(r => map.removeLayer(r.marker));
+        polylines.forEach(p => map.removeLayer(p));
+        nodes = []; repeaters = []; polylines = []; existingLinkKeys.clear(); connectedNodeIds.clear();
+        currentStep = 'BASE';
+        document.getElementById('add-node-btn').style.display = 'flex';
+        document.getElementById('calc-btn').style.display = 'none';
+        document.getElementById('export-btn').disabled = true;
+        document.getElementById('mesh-summary').style.display = 'none';
+        document.getElementById('mesh-log').innerHTML = '';
+        updateUI('Define Command Center', 'STEP 1', '#eee');
+    }
 
+    function closeProfile() { document.getElementById('profile-viewer').style.display = 'none'; }
+    function updateUI(sub, step, color) {
+        document.getElementById('ui-subtitle').innerText = sub;
+        const badge = document.getElementById('step-badge');
+        badge.innerText = step; badge.style.background = color;
+    }
+    function logToMesh(msg) {
+        const log = document.getElementById('mesh-log');
+        log.innerHTML = `<div>> ${msg}</div>` + log.innerHTML;
+    }
     window.onload = init;
 </script>
 </body>
