@@ -100,11 +100,11 @@
 <div id="processing-overlay">
     <div class="loader-box">
         <div style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">ROADSIDE MESH SOLVER</div>
-        <div id="proc-label" style="font-size: 0.8rem; color: #666; margin-top: 10px;">Generating Cost Surface...</div>
+        <div id="proc-label" style="font-size: 0.8rem; color: #666; margin-top: 10px;">Analyzing Road Corridors...</div>
         <div style="width: 100%; background: #eee; height: 4px; border-radius: 2px; margin-top: 15px; overflow: hidden;">
             <div id="proc-bar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.3s;"></div>
         </div>
-        <div id="proc-sub-label" style="font-size: 0.65rem; color: #999; margin-top: 8px;">Max 15km hops (6dBi) from road nodes...</div>
+        <div id="proc-sub-label" style="font-size: 0.65rem; color: #999; margin-top: 8px;">Budget Override Active for Connectivity</div>
     </div>
 </div>
 
@@ -147,7 +147,7 @@
     
     <div id="mesh-summary">
         <div style="display:flex; justify-content:space-between; font-weight:bold;">
-            <span>LCP Engine</span>
+            <span>Strategy Engine</span>
             <span id="mesh-status-text" style="color: #7f8c8d">Standby</span>
         </div>
         <div id="mesh-log" class="log"></div>
@@ -158,7 +158,7 @@
         <button class="btn-alt" onclick="resetApp()">🗑️ Reset All</button>
         <button class="btn-export" id="export-btn" onclick="exportKML()" disabled>💾 Export KML</button>
         <button class="btn-alt" onclick="resetMapOnly()">🔄 Clear Map</button>
-        <button class="btn-calc" id="calc-btn" onclick="runMeshOptimization()">⚡ CALCULATE LCP</button>
+        <button class="btn-calc" id="calc-btn" onclick="runMeshOptimization()">⚡ RUN 7-WAY SOLVER</button>
     </div>
 </div>
 
@@ -185,7 +185,7 @@
     const EARTH_R = 6371;
     const ZOOM_LEVEL = 12;
     const ROAD_THRESHOLD_M = 500; 
-    const MAX_HOP_KM = 15; // 15km for 6dBi
+    const MAX_HOP_KM = 15; // 15km for 6dBi (Link budget constraint)
 
     const COLORS = {
         primary: '#2c3e50',
@@ -201,7 +201,7 @@
         map = L.map('map', { zoomControl: false, tap: true }).setView([-33.95, 18.85], 11);
         L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
             maxZoom: 17,
-            attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)'
+            attribution: 'Map data: &copy; SRTM | Map style: &copy; OpenTopoMap'
         }).addTo(map);
         map.on('click', (e) => handleMapInput(e.latlng));
     }
@@ -284,47 +284,58 @@
         polylines.forEach(p => map.removeLayer(p));
         repeaters = []; polylines = []; repeaterCounter = 1; existingLinkKeys = new Set(); activeLinks = [];
         
-        logToMesh(`Generating Cost Surface (Roads & Terrain)...`);
+        logToMesh(`Phase 0: Scanning Roads & Terrain...`);
         await fetchLocalRoads();
         
-        const costSurface = await generateCostSurface(); 
+        const scoutRadius = 40000; 
+        const costSurface = await generateCostSurface(scoutRadius); 
+        const landmarks = costSurface.filter(p => p.alt > 100); 
 
         const targetPoints = nodes.slice(1);
+        
+        // --- MASTER STRATEGY LOOP ---
         for (let i = 0; i < targetPoints.length; i++) {
             const target = targetPoints[i];
             document.getElementById('proc-bar').style.width = `${Math.floor((i / targetPoints.length) * 100)}%`;
-            document.getElementById('proc-label').innerText = `Calculating Least Cost Path to Point ${target.id}...`;
+            document.getElementById('proc-label').innerText = `Targeting Point ${target.id}...`;
             
-            // Try direct existing mesh first
-            let reached = await tryBridgeToExistingMesh(target);
-            if (!reached) {
-                // Determine best start point in mesh
-                const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
-                let bestStart = nodes[0];
-                let minDist = Infinity;
-                network.forEach(pt => {
-                    const d = pt.latlng.distanceTo(target.latlng);
-                    if (d < minDist) { minDist = d; bestStart = pt; }
-                });
-                
-                logToMesh(`Solving A* path from Mesh to Node ${target.id}...`);
-                const chain = await findLeastCostRadioPath(bestStart, target, costSurface);
-                
-                if (chain) {
-                    let prevNode = bestStart;
-                    for (let pt of chain) {
-                        const rep = createRepeater(pt);
-                        await drawInteractiveLink(prevNode.latlng, rep.latlng);
-                        prevNode = rep;
-                        connectedNodeIds.add(rep.id);
-                    }
-                    await drawInteractiveLink(prevNode.latlng, target.latlng);
-                    connectedNodeIds.add(target.id);
-                    logToMesh(`Path established via ${chain.length} hops.`);
-                } else {
-                    logToMesh(`CRITICAL: No path found for Node ${target.id}.`);
-                }
+            // Strategy 1: Direct Link Check
+            logToMesh(`Strategy 1: Checking Direct LOS...`);
+            if (await tryBridgeToExistingMesh(target)) continue;
+
+            // Strategy 2: Single-Hop Roadside Pivot
+            logToMesh(`Strategy 2: Scouting single roadside high-point...`);
+            if (await attemptSingleRelay(target, landmarks, true)) continue;
+
+            // Strategy 3: A* Road Corridor (Multi-Hop)
+            logToMesh(`Strategy 3: Calculating LCP Road Corridor...`);
+            const chainRoad = await findLeastCostRadioPath(getBestStartNode(target), target, costSurface, true); 
+            if (chainRoad) {
+                deployChain(chainRoad, target);
+                continue;
             }
+
+            // Strategy 4: Single-Hop Wilderness Peak
+            logToMesh(`Strategy 4: Scouting off-road peaks...`);
+            if (await attemptSingleRelay(target, landmarks, false)) continue;
+
+            // Strategy 5: A* Wilderness Chain (Desperation)
+            logToMesh(`Strategy 5: Desperation Mode (All Terrain)...`);
+            const chainWild = await findLeastCostRadioPath(getBestStartNode(target), target, costSurface, false);
+            if (chainWild) {
+                deployChain(chainWild, target);
+                continue;
+            } 
+
+            // Strategy 7: Road Runner (Infrastructure Following)
+            logToMesh(`Strategy 7: Road Runner (Unlimited Budget)...`);
+            const roadChain = await solveRoadCorridor(getBestStartNode(target), target);
+            if (roadChain) {
+                deployChain(roadChain, target);
+                continue;
+            }
+
+            logToMesh(`CRITICAL: All strategies failed for Node ${target.id}.`);
         }
 
         document.getElementById('processing-overlay').style.display = 'none';
@@ -333,6 +344,40 @@
         const health = Math.round((connectedNodeIds.size / nodes.length) * 100);
         const overBudget = repeaters.length > repeaterBudget ? ` (+${repeaters.length - repeaterBudget} Extra)` : "";
         document.getElementById('mesh-status-text').innerText = `${health}% Coverage | ${repeaters.length} Relays${overBudget}`;
+    }
+
+    function getBestStartNode(target) {
+        const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
+        let bestStart = nodes[0];
+        let minDist = Infinity;
+        network.forEach(pt => {
+            const d = pt.latlng.distanceTo(target.latlng);
+            if (d < minDist) { minDist = d; bestStart = pt; }
+        });
+        return bestStart;
+    }
+
+    async function deployChain(chain, target) {
+        let prevNode = getBestStartNode(chain[0]);
+        // Re-verify start link to be safe
+        let bestStart = nodes[0];
+        let minD = Infinity;
+        const mesh = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
+        for(let m of mesh) {
+            const d = m.latlng.distanceTo(chain[0].latlng);
+            if(d < minD) { minD = d; bestStart = m; }
+        }
+        prevNode = bestStart;
+
+        for (let pt of chain) {
+            const rep = createRepeater(pt);
+            await drawInteractiveLink(prevNode.latlng, rep.latlng);
+            prevNode = rep;
+            connectedNodeIds.add(rep.id);
+        }
+        await drawInteractiveLink(prevNode.latlng, target.latlng);
+        connectedNodeIds.add(target.id);
+        logToMesh(`Connection established via ${chain.length} hops.`);
     }
 
     async function tryBridgeToExistingMesh(target) {
@@ -348,73 +393,99 @@
         return false;
     }
 
+    async function attemptSingleRelay(target, landmarks, requireRoad) {
+        const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
+        // Sort landmarks by altitude desc
+        const candidates = landmarks.filter(l => !requireRoad || l.isRoadside).sort((a,b) => b.alt - a.alt).slice(0, 100);
+        
+        for (let lm of candidates) {
+            const toTarget = await calculatePath(lm.latlng, target.latlng);
+            if (toTarget.clearance > 0.3) {
+                for (let src of network) {
+                    const toSrc = await calculatePath(src.latlng, lm.latlng);
+                    if (toSrc.clearance > 0.3) {
+                        const rep = createRepeater(lm);
+                        await drawInteractiveLink(src.latlng, rep.latlng);
+                        await drawInteractiveLink(rep.latlng, target.latlng);
+                        connectedNodeIds.add(target.id);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    async function solveRoadCorridor(source, target) {
+        const lats = [source.latlng.lat, target.latlng.lat];
+        const lngs = [source.latlng.lng, target.latlng.lng];
+        const minLat = Math.min(...lats) - 0.05;
+        const maxLat = Math.max(...lats) + 0.05;
+        const minLng = Math.min(...lngs) - 0.05;
+        const maxLng = Math.max(...lngs) + 0.05;
+
+        // Use ONLY road points as candidates
+        // And don't skip any (dense graph)
+        let candidatePoints = roadPoints.filter(p => 
+            p.lat >= minLat && p.lat <= maxLat && p.lng >= minLng && p.lng <= maxLng
+        ).map(p => ({ latlng: p, alt: 0, isRoadside: true, id: Math.random() }));
+
+        // Fetch altitudes if needed (A* will do it or we assume 0 relative to roads?)
+        // For accurate pathing we need altitude.
+        // We will just fetch inside the A* for speed
+        
+        if (candidatePoints.length === 0) return null;
+        return await findLeastCostRadioPath(source, target, candidatePoints, true, true);
+    }
+
     // --- LEAST COST PATH ENGINE ---
 
-    async function generateCostSurface() {
-        // Calculate Bounding Box of all nodes
-        const lats = nodes.map(n => n.latlng.lat);
-        const lngs = nodes.map(n => n.latlng.lng);
-        const minLat = Math.min(...lats) - 0.1; // ~10km buffer
-        const maxLat = Math.max(...lats) + 0.1;
-        const minLng = Math.min(...lngs) - 0.1;
-        const maxLng = Math.max(...lngs) + 0.1;
-
+    async function generateCostSurface(radiusMeters) {
+        const center = nodes[0].latlng;
+        const buffer = radiusMeters / 111320;
         let surface = [];
-        const steps = 80; // High resolution grid
+        const steps = 75; // Dense grid
         
         for(let i=0; i<=steps; i++) {
             for(let j=0; j<=steps; j++) {
-                const lat = minLat + ((maxLat - minLat) * (i/steps));
-                const lng = minLng + ((maxLng - minLng) * (j/steps));
+                const lat = center.lat - buffer + (buffer * 2 * (i/steps));
+                const lng = center.lng - buffer + (buffer * 2 * (j/steps));
                 const pt = L.latLng(lat, lng);
-                
                 const closestRoad = findClosestRoad(pt);
                 const distToRoad = closestRoad ? pt.distanceTo(closestRoad) : 10000;
                 const isRoadside = distToRoad < ROAD_THRESHOLD_M;
-                
                 const alt = await getElevation(pt.lat, pt.lng);
                 
-                // COST CALCULATION
-                let cost = 10;
-                if (!isRoadside) cost += 100; // Expensive to go offroad
-                cost -= (alt / 50); // High ground is attractive
-                if (cost < 1) cost = 1; // Minimum cost
-
-                surface.push({ latlng: pt, alt, isRoadside, cost });
+                if (!isRoadside && alt < 200) continue; 
+                surface.push({ latlng: pt, alt, isRoadside });
             }
         }
         
-        // Add specific road points to surface to ensure connectivity
-        const roadStep = Math.floor(roadPoints.length / 800) + 1; 
+        const roadStep = Math.max(1, Math.floor(roadPoints.length / 1500)); 
         for (let i = 0; i < roadPoints.length; i += roadStep) {
             const pt = roadPoints[i];
-            // Only add if within bounds
-            if (pt.lat >= minLat && pt.lat <= maxLat && pt.lng >= minLng && pt.lng <= maxLng) {
+            if (pt.distanceTo(center) < radiusMeters * 1.2) {
                 const alt = await getElevation(pt.lat, pt.lng);
-                surface.push({ latlng: pt, alt, isRoadside: true, cost: 1 });
+                surface.push({ latlng: pt, alt, isRoadside: true });
             }
         }
-        
         return surface;
     }
 
-    async function findLeastCostRadioPath(startNode, endNode, surface) {
-        // A* Algorithm
-        
+    async function findLeastCostRadioPath(startNode, endNode, graphNodes, roadPriority, denseMode = false) {
         let openSet = [];
         let cameFrom = new Map();
-        let gScore = new Map(); // Cost from start
-        let fScore = new Map(); // Estimated total cost
+        let gScore = new Map(); 
+        let fScore = new Map(); 
         
         const startPt = { latlng: startNode.latlng, cost: 0, id: 'start' };
         const endPt = { latlng: endNode.latlng, cost: 0, id: 'end' };
         
         const totalDist = startNode.latlng.distanceTo(endNode.latlng);
-        // Tighter search area
-        const candidates = surface.filter(p => {
+        const candidates = graphNodes.filter(p => {
             const d1 = p.latlng.distanceTo(startNode.latlng);
             const d2 = p.latlng.distanceTo(endNode.latlng);
-            return (d1 + d2) < totalDist * 1.5; 
+            return (d1 + d2) < totalDist * (denseMode ? 1.5 : 2.5); 
         });
         candidates.push(endPt);
 
@@ -423,44 +494,56 @@
         openSet.push(startPt);
         
         let loops = 0;
+        const MAX_LOOPS = denseMode ? 5000 : 3000;
         
-        while(openSet.length > 0 && loops < 5000) {
+        while(openSet.length > 0 && loops < MAX_LOOPS) {
             loops++;
             openSet.sort((a,b) => (fScore.get(a) || Infinity) - (fScore.get(b) || Infinity));
             const current = openSet.shift();
             
-            if (current === endPt) {
-                return reconstructPath(cameFrom, current);
-            }
+            if (current === endPt) return reconstructPath(cameFrom, current);
             
-            // To be faster: sort by distance to end
             candidates.sort((a,b) => a.latlng.distanceTo(endNode.latlng) - b.latlng.distanceTo(endNode.latlng));
             
             let neighborsChecked = 0;
+            const MAX_NEIGHBORS = denseMode ? 30 : 50;
             
             for(let neighbor of candidates) {
                 if (neighbor === current) continue;
                 
                 const dist = current.latlng.distanceTo(neighbor.latlng);
-                if (dist > (MAX_HOP_KM * 1000) || dist < 200) continue; // Max 15km per hop (6dBi)
+                // In Road Runner mode, we allow short hops
+                const minHop = denseMode ? 200 : 200;
+                if (dist > (MAX_HOP_KM * 1000) || dist < minHop) continue; 
                 
                 neighborsChecked++;
-                if (neighborsChecked > 60) break; // Limit fan-out
+                if (neighborsChecked > MAX_NEIGHBORS) break; 
                 
+                // On-demand elevation for road points if missing
+                if (!neighbor.alt && denseMode) neighbor.alt = await getElevation(neighbor.latlng.lat, neighbor.latlng.lng);
+
                 const path = await calculatePath(current.latlng, neighbor.latlng);
-                if (path.clearance > 0.3) {
-                    const edgeCost = neighbor.cost + 20; 
-                    const tentative_gScore = gScore.get(current) + edgeCost;
+                
+                if (path.clearance > 0.1) { 
+                    let linkMetric = 1.0;
+                    if (path.clearance < 0.6) linkMetric += (0.6 - path.clearance) * 5;
                     
+                    if (roadPriority) {
+                        if (!neighbor.isRoadside) linkMetric += 500; 
+                    } else {
+                        if (!neighbor.isRoadside) linkMetric += 50; 
+                    }
+                    
+                    // Prefer distance coverage
+                    linkMetric += (15000 - dist) / 15000; 
+
+                    const tentative_gScore = gScore.get(current) + linkMetric;
                     if (tentative_gScore < (gScore.get(neighbor) || Infinity)) {
                         cameFrom.set(neighbor, current);
                         gScore.set(neighbor, tentative_gScore);
-                        const h = neighbor.latlng.distanceTo(endNode.latlng) / 1000 * 5; 
+                        const h = (neighbor.latlng.distanceTo(endNode.latlng) / 15000);
                         fScore.set(neighbor, tentative_gScore + h);
-                        
-                        if (!openSet.includes(neighbor)) {
-                            openSet.push(neighbor);
-                        }
+                        if (!openSet.includes(neighbor)) openSet.push(neighbor);
                     }
                 }
             }
@@ -478,12 +561,11 @@
     }
 
     async function fetchLocalRoads() {
-        // Fetch roads for the entire mission area
         let bounds;
         if (nodes.length > 0) {
              const lats = nodes.map(n => n.latlng.lat);
              const lngs = nodes.map(n => n.latlng.lng);
-             const buffer = 0.15; 
+             const buffer = 0.25; 
              bounds = {
                  getSouth: () => Math.min(...lats) - buffer,
                  getNorth: () => Math.max(...lats) + buffer,
@@ -531,8 +613,8 @@
         const rep = { latlng: data.latlng, marker, id: `R${repeaterCounter-1}`, roadside: data.isRoadside };
         repeaters.push(rep);
         
-        if (isOverBudget) logToMesh(`EXTRA RELAY ${rep.id} added (Over Budget).`);
-        if (!data.isRoadside) logToMesh(`RELAY ${rep.id} IS OFF-ROAD (Desperation).`);
+        if (isOverBudget) logToMesh(`EXTRA RELAY ${rep.id} added.`);
+        if (!data.isRoadside) logToMesh(`RELAY ${rep.id} IS OFF-ROAD.`);
         
         return rep;
     }
