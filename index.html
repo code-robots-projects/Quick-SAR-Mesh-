@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>868MHz Fresnel Link Planner</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #2c3e50; --mesh-blue: #3498db; --danger: #e74c3c; --warning: #f1c40f; --success: #2ecc71; }
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100vw; z-index: 1; }
+        
+        #controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; background: white; padding: 15px; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 90%; max-width: 480px;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .legend { display: flex; gap: 10px; font-size: 0.7rem; font-weight: bold; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
+        .btn-main { background: var(--mesh-blue); color: white; }
+        .btn-alt { background: #dfe6e9; color: var(--primary); }
+        
+        #link-stats { 
+            margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
+            font-size: 0.8rem; display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="controls">
+    <div class="header">
+        <h1 style="font-size: 1rem; margin:0;">868MHz Link Analyzer</h1>
+        <div class="legend">
+            <span style="color: var(--success)">● Clear</span>
+            <span style="color: var(--warning)">● Marginal</span>
+            <span style="color: var(--danger)">● Blocked</span>
+        </div>
+    </div>
+    
+    <div class="btn-group">
+        <button class="btn-main" onclick="useMyLocation()">📍 ADD NODE AT GPS</button>
+        <button class="btn-alt" onclick="resetApp()">🗑️ CLEAR ALL</button>
+    </div>
+    
+    <div id="link-stats">
+        <b>Link Analysis (868 MHz):</b><br>
+        <span id="stat-dist">-</span> | <span id="stat-status">Place 2nd node</span>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let map, nodes = [], links = [], tileCache = new Map();
+    const ANT_H = 2.0; // 2 Meters
+    const FREQ = 868; // MHz
+    const ZOOM_LEVEL = 12;
+
+    function init() {
+        map = L.map('map', { zoomControl: false }).setView([-33.95, 18.46], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        map.on('click', (e) => addNode(e.latlng));
+    }
+
+    // --- MATH ENGINE ---
+    const decodeHeight = (r, g, b) => (r * 256 + g + b / 256) - 32768;
+    const lon2tile = (lon, z) => Math.floor((lon + 180) / 360 * Math.pow(2, z));
+    const lat2tile = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+
+    async function getElevation(lat, lng) {
+        const x = lon2tile(lng, ZOOM_LEVEL);
+        const y = lat2tile(lat, ZOOM_LEVEL);
+        const key = `${ZOOM_LEVEL}/${x}/${y}`;
+        if (!tileCache.has(key)) {
+            const img = new Image(); img.crossOrigin = "Anonymous";
+            await new Promise(r => { 
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 256; canvas.height = 256;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    tileCache.set(key, canvas); r();
+                };
+                img.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${ZOOM_LEVEL}/${x}/${y}.png`;
+                img.onerror = () => r();
+            });
+        }
+        const canvas = tileCache.get(key);
+        if (!canvas) return 0;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const n = Math.pow(2, ZOOM_LEVEL);
+        const px = Math.floor(((lng + 180) / 360 * n % 1) * 256);
+        const py = Math.floor(((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n % 1) * 256);
+        return decodeHeight(...ctx.getImageData(px, py, 1, 1).data.slice(0,3));
+    }
+
+    // --- FRESNEL & PATH ANALYSIS ---
+    async function analyzeLink(p1, p2) {
+        const distTotal = p1.distanceTo(p2);
+        const samples = 15; // Number of points to check along the line
+        let worstClearance = 1.0; 
+        
+        const h1 = await getElevation(p1.lat, p1.lng) + ANT_H;
+        const h2 = await getElevation(p2.lat, p2.lng) + ANT_H;
+
+        for (let i = 1; i < samples; i++) {
+            const fraction = i / samples;
+            const lat = p1.lat + (p2.lat - p1.lat) * fraction;
+            const lng = p1.lng + (p2.lng - p1.lng) * fraction;
+            
+            const d1 = distTotal * fraction;
+            const d2 = distTotal * (1 - fraction);
+            const terrainH = await getElevation(lat, lng);
+            
+            // Earth Curvature
+            const curv = (d1 * d2) / (2 * 1.333 * 6371 * 1000);
+            
+            // Fresnel Radius Calculation
+            // $$R = 17.32 \cdot \sqrt{\frac{d_1 \cdot d_2}{f \cdot D}}$$
+            const fRadius = 17.32 * Math.sqrt(( (d1/1000) * (d2/1000) ) / ( (FREQ/1000) * (distTotal/1000) ));
+            
+            // Height of the LOS ray at this point
+            const rayH = h1 + (h2 - h1) * fraction - curv;
+            
+            const clearance = (rayH - terrainH) / fRadius;
+            if (clearance < worstClearance) worstClearance = clearance;
+        }
+
+        let color = 'var(--success)';
+        let status = 'Clear (LOS)';
+        if (worstClearance < 0) { color = 'var(--danger)'; status = 'Blocked by Terrain'; }
+        else if (worstClearance < 0.6) { color = 'var(--warning)'; status = 'Fresnel Obstruction'; }
+
+        document.getElementById('link-stats').style.display = 'block';
+        document.getElementById('stat-dist').innerText = (distTotal/1000).toFixed(2) + ' km';
+        document.getElementById('stat-status').innerText = status;
+        document.getElementById('stat-status').style.color = color;
+
+        return color;
+    }
+
+    async function addNode(latlng) {
+        const node = L.circleMarker(latlng, { radius: 8, color: '#2c3e50', fillColor: '#3498db', fillOpacity: 1 }).addTo(map);
+        nodes.push(node);
+
+        if (nodes.length > 1) {
+            const prevNode = nodes[nodes.length - 2].getLatLng();
+            const color = await analyzeLink(prevNode, latlng);
+            L.polyline([prevNode, latlng], { color: color, weight: 4, opacity: 0.8 }).addTo(map);
+        }
+    }
+
+    function resetApp() { location.reload(); }
+    function useMyLocation() { map.locate({setView: true, maxZoom: 14}); map.on('locationfound', (e) => addNode(e.latlng)); }
+
+    window.onload = init;
+</script>
+</body>
+</html>
