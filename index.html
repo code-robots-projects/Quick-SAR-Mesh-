@@ -18,174 +18,168 @@
         }
         body { margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; background: var(--bg); }
         
-        #map { height: 100vh; width: 100vw; z-index: 1; transition: filter 0.5s ease; }
+        #map { height: 100vh; width: 100vw; z-index: 1; transition: filter 0.5s ease; cursor: crosshair; }
         
+        /* Nav Moved to Top-Left */
         #controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            position: absolute; top: 10px; left: 10px;
             z-index: 1000; background: white; padding: 18px; border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 90%; max-width: 480px;
-            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 300px;
+            border: 1px solid rgba(0,0,0,0.1);
+            max-height: 90vh; overflow-y: auto;
         }
 
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .title-group h1 { font-size: 1rem; margin: 0; color: var(--primary); font-weight: 800; letter-spacing: -0.5px; }
-        .title-group p { font-size: 0.65rem; margin: 0; color: #7f8c8d; text-transform: uppercase; font-weight: 600; }
+        .header { margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .title-group h1 { font-size: 1.1rem; margin: 0; color: var(--primary); font-weight: 800; }
+        .title-group p { font-size: 0.7rem; margin: 0; color: #7f8c8d; font-weight: 600; }
         
-        .status-badge { font-size: 0.7rem; font-weight: 800; padding: 4px 8px; border-radius: 20px; background: #eee; transition: all 0.3s; }
-        
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        button { 
-            padding: 12px; border: none; border-radius: 10px; cursor: pointer; 
-            font-weight: 700; font-size: 0.75rem; transition: all 0.2s ease;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
+        .status-badge { 
+            display: inline-block; font-size: 0.65rem; font-weight: 800; 
+            padding: 3px 8px; border-radius: 12px; background: #eee; 
+            margin-top: 5px; color: #555;
         }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        button { 
+            padding: 12px; border: none; border-radius: 8px; cursor: pointer; 
+            font-weight: 700; font-size: 0.8rem; transition: all 0.2s ease;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%;
+        }
+        button:hover { filter: brightness(95%); transform: translateY(-1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
         .btn-main { background: var(--mesh-blue); color: white; }
-        .btn-calc { background: var(--success); color: white; grid-column: span 2; display: none; }
+        .btn-calc { background: var(--success); color: white; }
         .btn-alt { background: #f1f2f6; color: var(--primary); }
+        .btn-view { background: var(--accent); color: white; }
         .btn-export { background: #34495e; color: white; }
 
         #processing-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.4); z-index: 1500;
+            background: rgba(255, 255, 255, 0.8); z-index: 2000;
             display: none; flex-direction: column; align-items: center; justify-content: center;
-            backdrop-filter: blur(4px); pointer-events: none;
+            backdrop-filter: blur(5px);
         }
         
-        .loader-box { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; min-width: 280px; }
+        .loader-box { text-align: center; color: var(--primary); }
+        .spinner { width: 40px; height: 40px; border: 4px solid #ddd; border-top: 4px solid var(--mesh-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         #prompt-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.8); z-index: 2000;
+            background: rgba(0,0,0,0.5); z-index: 3000;
             display: none; align-items: center; justify-content: center;
         }
-        .modal { background: white; padding: 25px; border-radius: 20px; text-align: left; max-width: 320px; width: 90%; }
-        .modal h3 { margin-top: 0; text-align: center; font-size: 1.1rem; color: var(--primary); }
+        .modal { background: white; padding: 25px; border-radius: 16px; width: 90%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         .input-row { margin-bottom: 15px; }
-        .input-row label { display: block; font-size: 0.7rem; font-weight: 800; color: #666; margin-bottom: 5px; }
-        .modal input { width: 100%; padding: 12px; border: 2px solid #eee; border-radius: 10px; font-size: 1rem; box-sizing: border-box; }
+        .input-row label { display: block; font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: #555; }
+        .modal input { width: 100%; padding: 10px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; }
 
-        #mesh-summary { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; font-size: 0.85rem; display: none; }
-        .log { max-height: 80px; overflow-y: auto; font-size: 0.75rem; color: #666; margin-top: 5px; background: #fdfdfd; padding: 8px; border-radius: 4px; border: 1px solid #eee; }
+        #mesh-log { 
+            margin-top: 15px; max-height: 150px; overflow-y: auto; 
+            font-size: 0.7rem; color: #666; background: #f8f9fa; 
+            padding: 8px; border-radius: 8px; border: 1px solid #eee;
+            font-family: monospace;
+        }
         
         #profile-viewer {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 600px; background: white; z-index: 2000;
-            border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            display: none; padding: 15px;
+            position: absolute; bottom: 20px; right: 20px; width: 300px;
+            background: white; z-index: 1000; border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2); padding: 15px;
+            display: none;
         }
-        #profile-canvas { width: 100%; height: 150px; background: #f9f9f9; border-radius: 8px; }
-        .profile-stats { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.75rem; color: var(--primary); font-weight: 600; }
+        #profile-canvas { width: 100%; height: 120px; background: #f4f4f4; border-radius: 6px; }
 
+        /* Marker Styles */
         .repeater-pulse { 
-            background: var(--accent); border-radius: 50%; 
-            box-shadow: 0 0 0 rgba(155, 89, 182, 0.4); 
-            animation: pulse 2s infinite; 
-            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;
-            border: 2px solid white;
+            background: var(--accent); border: 2px solid white; border-radius: 50%; 
+            color: white; font-weight: bold; font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .road-pulse {
+            background: var(--mesh-blue); border: 2px solid white; border-radius: 50%;
+            color: white; font-weight: bold; font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         .desperation-pulse {
-            background: var(--desperation); border-radius: 50%; 
-            box-shadow: 0 0 0 rgba(230, 126, 34, 0.4); 
-            animation: pulse-orange 1s infinite; 
-            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;
-            border: 2px solid white;
+            background: var(--desperation); border: 2px solid white; border-radius: 50%; 
+            color: white; font-weight: bold; font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); } 100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); } }
-        @keyframes pulse-orange { 0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.7); } 50% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); } 100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); } }
     </style>
 </head>
 <body>
 
 <div id="processing-overlay">
     <div class="loader-box">
-        <div style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">ROADSIDE MESH SOLVER</div>
-        <div id="proc-label" style="font-size: 0.8rem; color: #666; margin-top: 10px;">Analyzing Road Corridors...</div>
-        <div style="width: 100%; background: #eee; height: 4px; border-radius: 2px; margin-top: 15px; overflow: hidden;">
-            <div id="proc-bar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.3s;"></div>
+        <div class="spinner"></div>
+        <div style="font-weight: 800; font-size: 1.2rem;">CALCULATING MESH</div>
+        <div id="proc-label" style="font-size: 0.9rem; margin-top: 5px;">Analyzing Topology...</div>
+        <div id="proc-bar" style="width: 200px; height: 4px; background: #eee; margin: 10px auto; border-radius: 2px; overflow:hidden;">
+            <div id="proc-fill" style="width: 0%; height: 100%; background: var(--success); transition: width 0.3s;"></div>
         </div>
-        <div id="proc-sub-label" style="font-size: 0.65rem; color: #999; margin-top: 8px;">Budget Override Active for Connectivity</div>
     </div>
 </div>
 
 <div id="prompt-overlay">
     <div class="modal">
-        <h3>Deployment Mission</h3>
+        <h3>Mission Parameters</h3>
         <div class="input-row">
-            <label>POINTS TO REACH</label>
-            <input type="number" id="node-count-input" value="1" min="1" max="20">
+            <label>NODES TO CONNECT</label>
+            <input type="number" id="node-count-input" value="1" min="1" max="50">
         </div>
         <div class="input-row">
-            <label>PREFERRED REPEATER LIMIT</label>
-            <input type="number" id="repeater-budget-input" value="5" min="1" max="100">
+            <label>INITIAL REPEATER BUDGET</label>
+            <input type="number" id="repeater-budget-input" value="10" min="1" max="200">
         </div>
-        <button class="btn-main" style="width: 100%" onclick="confirmDeploymentSetup()">Begin Mission</button>
+        <button class="btn-main" onclick="confirmSetup()">Start Placement</button>
     </div>
 </div>
 
 <div id="profile-viewer">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <span id="profile-title" style="font-weight:800; font-size:0.8rem;">LINK ANALYSIS</span>
-        <button onclick="closeProfile()" style="padding:4px 8px; font-size:10px;">CLOSE</button>
+    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+        <span style="font-weight:800; font-size:0.75rem;">LINK PROFILE</span>
+        <button onclick="closeProfile()" style="padding:2px 6px; font-size:0.7rem; width:auto;">X</button>
     </div>
     <canvas id="profile-canvas"></canvas>
-    <div class="profile-stats">
-        <span id="stat-dist">Distance: -- km</span>
-        <span id="stat-clear">Clearance: -- %</span>
-    </div>
-    <div id="stat-coords" style="font-size: 0.6rem; color: #999; margin-top: 5px; text-align: center;"></div>
+    <div id="profile-stats" style="font-size:0.7rem; margin-top:5px; color:#555;"></div>
 </div>
 
 <div id="controls">
     <div class="header">
         <div class="title-group">
             <h1>Roadside Mesh Planner</h1>
-            <p id="ui-subtitle">6dBi Antennas (15km Max Hop)</p>
+            <p>6dBi / 15km Max Hop / 3m Height</p>
         </div>
-        <div id="step-badge" class="status-badge">STEP 1</div>
-    </div>
-    
-    <div id="mesh-summary">
-        <div style="display:flex; justify-content:space-between; font-weight:bold;">
-            <span>Strategy Engine</span>
-            <span id="mesh-status-text" style="color: #7f8c8d">Standby</span>
-        </div>
-        <div id="mesh-log" class="log"></div>
+        <div id="status-badge" class="status-badge">SETUP REQUIRED</div>
     </div>
 
     <div class="btn-group">
-        <button class="btn-main" id="add-node-btn" onclick="triggerAddNode()">📍 Place Point</button>
-        <button class="btn-alt" onclick="resetApp()">🗑️ Reset All</button>
+        <button class="btn-main" id="add-node-btn" onclick="triggerAddNode()">📍 Place Node</button>
+        <button class="btn-calc" id="calc-btn" onclick="runMeshSolver()" disabled>⚡ SOLVE PATHS</button>
+        <button class="btn-view" onclick="toggleViewshed()">👁️ Toggle Viewshed</button>
         <button class="btn-export" id="export-btn" onclick="exportKML()" disabled>💾 Export KML</button>
-        <button class="btn-alt" onclick="resetMapOnly()">🔄 Clear Map</button>
-        <button class="btn-calc" id="calc-btn" onclick="runMeshOptimization()">⚡ RUN 7-WAY SOLVER</button>
+        <button class="btn-alt" onclick="resetMap()">🔄 Reset Map</button>
     </div>
+    
+    <div id="mesh-log">Waiting for input...</div>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    let map, tileCache = new Map();
-    let nodes = []; 
-    let repeaters = []; 
-    let polylines = [];
-    let roadPoints = [];
-    let existingLinkKeys = new Set(); 
-    let connectedNodeIds = new Set([0]); 
-    let activeLinks = [];
-    let targetNodeCount = 0;
-    let repeaterBudget = 0;
-    let currentStep = 'BASE';
-    let repeaterCounter = 1;
-    
-    const ANT_H = 10.0;
-    const FREQ_GHZ = 0.868;
+    // --- GLOBAL CONSTANTS ---
+    const ANT_H = 3.0; // 3 meters
+    const MAX_HOP_KM = 15; // 15km limit for 6dBi
     const EARTH_K = 1.333;
     const EARTH_R = 6371;
-    const ZOOM_LEVEL = 12;
-    const ROAD_THRESHOLD_M = 500; 
-    const MAX_HOP_KM = 15; // 15km for 6dBi (Link budget constraint)
+    const ZOOM_LEVEL = 14; 
+    const ROAD_THRESHOLD = 750; 
 
     const COLORS = {
         primary: '#2c3e50',
@@ -197,15 +191,29 @@
         desperation: '#e67e22'
     };
 
-    function init() {
-        map = L.map('map', { zoomControl: false, tap: true }).setView([-33.95, 18.85], 11);
-        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            maxZoom: 17,
-            attribution: 'Map data: &copy; SRTM | Map style: &copy; OpenTopoMap'
-        }).addTo(map);
-        map.on('click', (e) => handleMapInput(e.latlng));
-    }
+    const VIEWSHED_PALETTE = [
+        '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', 
+        '#f1c40f', '#e67e22', '#1abc9c', '#d35400', 
+        '#2980b9', '#8e44ad', '#27ae60', '#16a085', '#f39c12', '#c0392b'
+    ];
 
+    // --- GLOBAL STATE ---
+    let map;
+    let tileCache = new Map();
+    let nodes = []; 
+    let repeaters = []; 
+    let links = [];
+    let roadPoints = []; 
+    let activeViewshedLayer = null;
+    let targetCount = 0;
+    let budget = 0;
+    let currentStep = 'SETUP';
+    let rCounter = 1;
+    let viewshedMode = false;
+    let existingLinkKeys = new Set();
+    let connectedNodeIds = new Set([0]);
+
+    // --- UTILS & DATA FETCHING ---
     const decodeHeight = (r, g, b) => (r * 256 + g + b / 256) - 32768;
     const lon2tile = (lon, z) => Math.floor((lon + 180) / 360 * Math.pow(2, z));
     const lat2tile = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
@@ -239,496 +247,416 @@
         return decodeHeight(p[0], p[1], p[2]);
     }
 
-    function triggerAddNode() {
-        if (currentStep === 'OPTIMIZING') return;
-        map.locate({setView: true, maxZoom: 12});
-        map.once('locationfound', (e) => handleMapInput(e.latlng));
-    }
-
-    async function handleMapInput(latlng) {
-        if (currentStep === 'BASE') {
-            const marker = L.circleMarker(latlng, { radius: 12, color: 'white', fillColor: COLORS.primary, fillOpacity: 1, weight: 3 }).addTo(map);
-            nodes.push({ latlng, marker, type: 'BASE', id: 0 });
-            document.getElementById('prompt-overlay').style.display = 'flex';
-        } else if (currentStep === 'NODES') {
-            const marker = L.circleMarker(latlng, { radius: 10, color: 'white', fillColor: COLORS.meshBlue, fillOpacity: 1, weight: 2 }).addTo(map);
-            nodes.push({ latlng, marker, type: 'FIELD', id: nodes.length });
-            if (nodes.length - 1 === targetNodeCount) {
-                currentStep = 'READY_CALC';
-                document.getElementById('add-node-btn').style.display = 'none';
-                document.getElementById('calc-btn').style.display = 'flex';
-                updateUI(`Points Defined`, `READY`, COLORS.success);
-            } else {
-                updateUI(`Mark ${targetNodeCount - (nodes.length - 1)} More Points`, `STEP 2`, COLORS.meshBlue);
-            }
+    async function loadRoads() {
+        let bounds = map.getBounds();
+        let q = `[out:json];way["highway"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});(._;>;);out body;`;
+        try {
+            let res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
+            let data = await res.json();
+            roadPoints = [];
+            data.elements.forEach(e => {
+                if (e.type === 'node') roadPoints.push(L.latLng(e.lat, e.lon));
+            });
+            log(`Loaded ${roadPoints.length} road points.`);
+        } catch(e) { 
+            log("Road fetch failed (Demo Mode)");
+            roadPoints = []; 
         }
     }
 
-    function confirmDeploymentSetup() {
-        targetNodeCount = parseInt(document.getElementById('node-count-input').value);
-        repeaterBudget = parseInt(document.getElementById('repeater-budget-input').value);
+    async function generateCandidates() {
+        let candidates = [];
+        // Add road points
+        for (let i=0; i<roadPoints.length; i+=10) { 
+             let pt = roadPoints[i];
+             candidates.push({ latlng: pt, isRoad: true });
+        }
+        // Add grid points
+        let bounds = map.getBounds();
+        let steps = 30; 
+        let latStep = (bounds.getNorth() - bounds.getSouth()) / steps;
+        let lngStep = (bounds.getEast() - bounds.getWest()) / steps;
+        for(let r=0; r<steps; r++) {
+            for(let c=0; c<steps; c++) {
+                let lat = bounds.getSouth() + r*latStep;
+                let lng = bounds.getWest() + c*lngStep;
+                let pt = L.latLng(lat, lng);
+                candidates.push({ latlng: pt, isRoad: false });
+            }
+        }
+        return candidates;
+    }
+
+    async function analyzeLink(p1, p2) {
+        let dist = p1.distanceTo(p2);
+        let samples = 20;
+        let isClear = true;
+        let startAlt = await getElevation(p1.lat, p1.lng) + ANT_H;
+        let endAlt = await getElevation(p2.lat, p2.lng) + ANT_H;
+        for(let i=1; i<samples; i++) {
+            let frac = i/samples;
+            let lat = p1.lat + (p2.lat - p1.lat)*frac;
+            let lng = p1.lng + (p2.lng - p1.lng)*frac;
+            let terrainAlt = await getElevation(lat, lng);
+            let losHeight = startAlt + (endAlt - startAlt)*frac;
+            let d1 = (dist * frac) / 1000;
+            let d2 = (dist * (1-frac)) / 1000;
+            let curve = (d1*d2*1000) / (2 * EARTH_K * EARTH_R);
+            if (terrainAlt > (losHeight - curve - 5)) { isClear = false; break; }
+        }
+        return { clear: isClear, dist: dist };
+    }
+
+    // --- UI & APP LOGIC ---
+
+    function init() {
+        map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([-33.95, 18.85], 12);
+        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        map.createPane('viewshedPane'); // Custom pane for viewshed
+        map.getPane('viewshedPane').style.zIndex = 650; 
+        map.getPane('viewshedPane').style.pointerEvents = 'none'; 
+        map.on('click', onMapClick);
+        document.getElementById('prompt-overlay').style.display = 'flex';
+    }
+
+    function confirmSetup() {
+        targetCount = parseInt(document.getElementById('node-count-input').value);
+        budget = parseInt(document.getElementById('repeater-budget-input').value);
         document.getElementById('prompt-overlay').style.display = 'none';
-        currentStep = 'NODES';
-        document.getElementById('mesh-summary').style.display = 'block';
-        updateUI(`Mark ${targetNodeCount} Points to Reach`, `STEP 2`, COLORS.meshBlue);
-        logToMesh(`Mission: Connect ${targetNodeCount} points.`);
+        currentStep = 'PLACING';
+        updateStatus("Place Base Station");
+        log("Mission: Base + " + targetCount + " Nodes. Budget: " + budget);
     }
 
-    async function runMeshOptimization() {
-        document.getElementById('processing-overlay').style.display = 'flex';
-        document.getElementById('calc-btn').disabled = true;
-        currentStep = 'OPTIMIZING';
-        connectedNodeIds = new Set([0]);
-        
-        repeaters.forEach(r => map.removeLayer(r.marker));
-        polylines.forEach(p => map.removeLayer(p));
-        repeaters = []; polylines = []; repeaterCounter = 1; existingLinkKeys = new Set(); activeLinks = [];
-        
-        logToMesh(`Phase 0: Scanning Roads & Terrain...`);
-        await fetchLocalRoads();
-        
-        const scoutRadius = 40000; 
-        const costSurface = await generateCostSurface(scoutRadius); 
-        const landmarks = costSurface.filter(p => p.alt > 100); 
+    function triggerAddNode() {
+        if(currentStep === 'DONE') {
+            currentStep = 'PLACING';
+            updateStatus("Adding extra node...");
+        }
+    }
 
-        const targetPoints = nodes.slice(1);
-        
-        // --- MASTER STRATEGY LOOP ---
-        for (let i = 0; i < targetPoints.length; i++) {
-            const target = targetPoints[i];
-            document.getElementById('proc-bar').style.width = `${Math.floor((i / targetPoints.length) * 100)}%`;
-            document.getElementById('proc-label').innerText = `Targeting Point ${target.id}...`;
+    function onMapClick(e) {
+        if (viewshedMode) {
+             renderViewshed(e.latlng);
+             return;
+        }
+
+        if (currentStep === 'PLACING') {
+            let type = nodes.length === 0 ? 'BASE' : 'NODE';
+            let color = type === 'BASE' ? '#2c3e50' : '#3498db';
+            let marker = L.circleMarker(e.latlng, { radius: 8, color: 'white', fillColor: color, fillOpacity: 1, weight: 2 }).addTo(map);
+            marker.bindTooltip(type + " " + (nodes.length)).openTooltip();
+            nodes.push({ latlng: e.latlng, type: type, id: nodes.length, marker: marker });
             
-            // Strategy 1: Direct Link Check
-            logToMesh(`Strategy 1: Checking Direct LOS...`);
-            if (await tryBridgeToExistingMesh(target)) continue;
-
-            // Strategy 2: Single-Hop Roadside Pivot
-            logToMesh(`Strategy 2: Scouting single roadside high-point...`);
-            if (await attemptSingleRelay(target, landmarks, true)) continue;
-
-            // Strategy 3: A* Road Corridor (Multi-Hop)
-            logToMesh(`Strategy 3: Calculating LCP Road Corridor...`);
-            const chainRoad = await findLeastCostRadioPath(getBestStartNode(target), target, costSurface, true); 
-            if (chainRoad) {
-                deployChain(chainRoad, target);
-                continue;
-            }
-
-            // Strategy 4: Single-Hop Wilderness Peak
-            logToMesh(`Strategy 4: Scouting off-road peaks...`);
-            if (await attemptSingleRelay(target, landmarks, false)) continue;
-
-            // Strategy 5: A* Wilderness Chain (Desperation)
-            logToMesh(`Strategy 5: Desperation Mode (All Terrain)...`);
-            const chainWild = await findLeastCostRadioPath(getBestStartNode(target), target, costSurface, false);
-            if (chainWild) {
-                deployChain(chainWild, target);
-                continue;
-            } 
-
-            // Strategy 7: Road Runner (Infrastructure Following)
-            logToMesh(`Strategy 7: Road Runner (Unlimited Budget)...`);
-            const roadChain = await solveRoadCorridor(getBestStartNode(target), target);
-            if (roadChain) {
-                deployChain(roadChain, target);
-                continue;
-            }
-
-            logToMesh(`CRITICAL: All strategies failed for Node ${target.id}.`);
-        }
-
-        document.getElementById('processing-overlay').style.display = 'none';
-        document.getElementById('export-btn').disabled = false;
-        updateUI("Solver Complete", "DONE", COLORS.success);
-        const health = Math.round((connectedNodeIds.size / nodes.length) * 100);
-        const overBudget = repeaters.length > repeaterBudget ? ` (+${repeaters.length - repeaterBudget} Extra)` : "";
-        document.getElementById('mesh-status-text').innerText = `${health}% Coverage | ${repeaters.length} Relays${overBudget}`;
-    }
-
-    function getBestStartNode(target) {
-        const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
-        let bestStart = nodes[0];
-        let minDist = Infinity;
-        network.forEach(pt => {
-            const d = pt.latlng.distanceTo(target.latlng);
-            if (d < minDist) { minDist = d; bestStart = pt; }
-        });
-        return bestStart;
-    }
-
-    async function deployChain(chain, target) {
-        let prevNode = getBestStartNode(chain[0]);
-        // Re-verify start link to be safe
-        let bestStart = nodes[0];
-        let minD = Infinity;
-        const mesh = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
-        for(let m of mesh) {
-            const d = m.latlng.distanceTo(chain[0].latlng);
-            if(d < minD) { minD = d; bestStart = m; }
-        }
-        prevNode = bestStart;
-
-        for (let pt of chain) {
-            const rep = createRepeater(pt);
-            await drawInteractiveLink(prevNode.latlng, rep.latlng);
-            prevNode = rep;
-            connectedNodeIds.add(rep.id);
-        }
-        await drawInteractiveLink(prevNode.latlng, target.latlng);
-        connectedNodeIds.add(target.id);
-        logToMesh(`Connection established via ${chain.length} hops.`);
-    }
-
-    async function tryBridgeToExistingMesh(target) {
-        const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
-        for (let pt of network) {
-            const path = await calculatePath(pt.latlng, target.latlng);
-            if (path.clearance > 0.3) {
-                await drawInteractiveLink(pt.latlng, target.latlng);
-                connectedNodeIds.add(target.id);
-                return true;
+            if (nodes.length > targetCount) {
+                currentStep = 'READY';
+                document.getElementById('calc-btn').disabled = false;
+                document.getElementById('add-node-btn').innerText = "➕ Add More";
+                updateStatus("Ready to Solve");
+            } else {
+                updateStatus(`Place Node ${nodes.length} of ${targetCount}`);
             }
         }
-        return false;
     }
 
-    async function attemptSingleRelay(target, landmarks, requireRoad) {
-        const network = [...nodes.filter(n => connectedNodeIds.has(n.id)), ...repeaters];
-        // Sort landmarks by altitude desc
-        const candidates = landmarks.filter(l => !requireRoad || l.isRoadside).sort((a,b) => b.alt - a.alt).slice(0, 100);
-        
-        for (let lm of candidates) {
-            const toTarget = await calculatePath(lm.latlng, target.latlng);
-            if (toTarget.clearance > 0.3) {
-                for (let src of network) {
-                    const toSrc = await calculatePath(src.latlng, lm.latlng);
-                    if (toSrc.clearance > 0.3) {
-                        const rep = createRepeater(lm);
-                        await drawInteractiveLink(src.latlng, rep.latlng);
-                        await drawInteractiveLink(rep.latlng, target.latlng);
-                        connectedNodeIds.add(target.id);
-                        return true;
+    async function runMeshSolver() {
+        setBusy(true, "Scanning Road Network...");
+        await loadRoads();
+        setBusy(true, "Building Terrain Graph...");
+        const candidates = await generateCandidates();
+
+        let connectedSet = new Set([0]); 
+        repeaters.forEach(r => map.removeLayer(r.marker));
+        links.forEach(l => map.removeLayer(l));
+        repeaters = []; links = []; rCounter = 1;
+
+        let targets = nodes.slice(1).sort((a,b) => a.latlng.distanceTo(nodes[0].latlng) - b.latlng.distanceTo(nodes[0].latlng));
+
+        for (let i=0; i<targets.length; i++) {
+            let target = targets[i];
+            setBusy(true, `Solving Path to Node ${target.id}...`, (i/targets.length)*100);
+            
+            let bestPath = null;
+            let bestCost = Infinity;
+
+            let potentialSources = [nodes[0], ...nodes.slice(1).filter(n => connectedSet.has(n.id)), ...repeaters];
+            potentialSources.sort((a,b) => a.latlng.distanceTo(target.latlng) - b.latlng.distanceTo(target.latlng));
+            potentialSources = potentialSources.slice(0, 3);
+
+            for (let src of potentialSources) {
+                let path = await checkDirectLink(src, target);
+                if (path) {
+                    if (path.cost < bestCost) { bestCost = path.cost; bestPath = path.chain; }
+                    continue; 
+                }
+
+                let roadCandidates = candidates.filter(c => c.isRoad);
+                let roadChain = await findAStarPath(src, target, roadCandidates, true); 
+                if (roadChain && roadChain.cost < bestCost) {
+                    bestCost = roadChain.cost; bestPath = roadChain.path;
+                }
+
+                if (!bestPath) {
+                    let wildChain = await findAStarPath(src, target, candidates, false);
+                    if (wildChain && wildChain.cost < bestCost) {
+                        bestCost = wildChain.cost; bestPath = wildChain.path;
                     }
                 }
             }
-        }
-        return false;
-    }
 
-    async function solveRoadCorridor(source, target) {
-        const lats = [source.latlng.lat, target.latlng.lat];
-        const lngs = [source.latlng.lng, target.latlng.lng];
-        const minLat = Math.min(...lats) - 0.05;
-        const maxLat = Math.max(...lats) + 0.05;
-        const minLng = Math.min(...lngs) - 0.05;
-        const maxLng = Math.max(...lngs) + 0.05;
-
-        // Use ONLY road points as candidates
-        // And don't skip any (dense graph)
-        let candidatePoints = roadPoints.filter(p => 
-            p.lat >= minLat && p.lat <= maxLat && p.lng >= minLng && p.lng <= maxLng
-        ).map(p => ({ latlng: p, alt: 0, isRoadside: true, id: Math.random() }));
-
-        // Fetch altitudes if needed (A* will do it or we assume 0 relative to roads?)
-        // For accurate pathing we need altitude.
-        // We will just fetch inside the A* for speed
-        
-        if (candidatePoints.length === 0) return null;
-        return await findLeastCostRadioPath(source, target, candidatePoints, true, true);
-    }
-
-    // --- LEAST COST PATH ENGINE ---
-
-    async function generateCostSurface(radiusMeters) {
-        const center = nodes[0].latlng;
-        const buffer = radiusMeters / 111320;
-        let surface = [];
-        const steps = 75; // Dense grid
-        
-        for(let i=0; i<=steps; i++) {
-            for(let j=0; j<=steps; j++) {
-                const lat = center.lat - buffer + (buffer * 2 * (i/steps));
-                const lng = center.lng - buffer + (buffer * 2 * (j/steps));
-                const pt = L.latLng(lat, lng);
-                const closestRoad = findClosestRoad(pt);
-                const distToRoad = closestRoad ? pt.distanceTo(closestRoad) : 10000;
-                const isRoadside = distToRoad < ROAD_THRESHOLD_M;
-                const alt = await getElevation(pt.lat, pt.lng);
-                
-                if (!isRoadside && alt < 200) continue; 
-                surface.push({ latlng: pt, alt, isRoadside });
+            if (bestPath) {
+                deployPath(bestPath, target);
+                connectedSet.add(target.id);
+            } else {
+                log("FAILED to reach Node " + target.id + ". Showing theoretical line.");
+                let failLine = L.polyline([nodes[0].latlng, target.latlng], { color: 'red', dashArray: '5,5', weight: 2 }).addTo(map);
+                links.push(failLine);
             }
         }
-        
-        const roadStep = Math.max(1, Math.floor(roadPoints.length / 1500)); 
-        for (let i = 0; i < roadPoints.length; i += roadStep) {
-            const pt = roadPoints[i];
-            if (pt.distanceTo(center) < radiusMeters * 1.2) {
-                const alt = await getElevation(pt.lat, pt.lng);
-                surface.push({ latlng: pt, alt, isRoadside: true });
-            }
-        }
-        return surface;
+
+        setBusy(false);
+        document.getElementById('export-btn').disabled = false;
+        updateStatus("Mesh Optimized");
     }
 
-    async function findLeastCostRadioPath(startNode, endNode, graphNodes, roadPriority, denseMode = false) {
-        let openSet = [];
-        let cameFrom = new Map();
-        let gScore = new Map(); 
-        let fScore = new Map(); 
-        
-        const startPt = { latlng: startNode.latlng, cost: 0, id: 'start' };
-        const endPt = { latlng: endNode.latlng, cost: 0, id: 'end' };
-        
-        const totalDist = startNode.latlng.distanceTo(endNode.latlng);
-        const candidates = graphNodes.filter(p => {
-            const d1 = p.latlng.distanceTo(startNode.latlng);
-            const d2 = p.latlng.distanceTo(endNode.latlng);
-            return (d1 + d2) < totalDist * (denseMode ? 1.5 : 2.5); 
-        });
-        candidates.push(endPt);
+    async function checkDirectLink(src, target) {
+        let dist = src.latlng.distanceTo(target.latlng);
+        if (dist > MAX_HOP_KM * 1000) return null;
+        let analysis = await analyzeLink(src.latlng, target.latlng);
+        if (analysis.clear) return { cost: dist, chain: [] };
+        return null;
+    }
 
-        gScore.set(startPt, 0);
-        fScore.set(startPt, totalDist / 1000); 
-        openSet.push(startPt);
-        
+    async function findAStarPath(start, end, graph, roadBias) {
+        let open = [{ node: start, g: 0, f: 0, path: [] }];
+        let closed = new Set();
         let loops = 0;
-        const MAX_LOOPS = denseMode ? 5000 : 3000;
-        
-        while(openSet.length > 0 && loops < MAX_LOOPS) {
+        while(open.length > 0 && loops < 2000) {
             loops++;
-            openSet.sort((a,b) => (fScore.get(a) || Infinity) - (fScore.get(b) || Infinity));
-            const current = openSet.shift();
-            
-            if (current === endPt) return reconstructPath(cameFrom, current);
-            
-            candidates.sort((a,b) => a.latlng.distanceTo(endNode.latlng) - b.latlng.distanceTo(endNode.latlng));
-            
-            let neighborsChecked = 0;
-            const MAX_NEIGHBORS = denseMode ? 30 : 50;
-            
-            for(let neighbor of candidates) {
-                if (neighbor === current) continue;
-                
-                const dist = current.latlng.distanceTo(neighbor.latlng);
-                // In Road Runner mode, we allow short hops
-                const minHop = denseMode ? 200 : 200;
-                if (dist > (MAX_HOP_KM * 1000) || dist < minHop) continue; 
-                
-                neighborsChecked++;
-                if (neighborsChecked > MAX_NEIGHBORS) break; 
-                
-                // On-demand elevation for road points if missing
-                if (!neighbor.alt && denseMode) neighbor.alt = await getElevation(neighbor.latlng.lat, neighbor.latlng.lng);
+            open.sort((a,b) => a.f - b.f);
+            let current = open.shift();
 
-                const path = await calculatePath(current.latlng, neighbor.latlng);
-                
-                if (path.clearance > 0.1) { 
-                    let linkMetric = 1.0;
-                    if (path.clearance < 0.6) linkMetric += (0.6 - path.clearance) * 5;
-                    
-                    if (roadPriority) {
-                        if (!neighbor.isRoadside) linkMetric += 500; 
-                    } else {
-                        if (!neighbor.isRoadside) linkMetric += 50; 
-                    }
-                    
-                    // Prefer distance coverage
-                    linkMetric += (15000 - dist) / 15000; 
+            let distToEnd = current.node.latlng.distanceTo(end.latlng);
+            if (distToEnd < MAX_HOP_KM * 1000) {
+                 let finalLeg = await analyzeLink(current.node.latlng, end.latlng);
+                 if (finalLeg.clear) return { cost: current.g + distToEnd, path: current.path };
+            }
 
-                    const tentative_gScore = gScore.get(current) + linkMetric;
-                    if (tentative_gScore < (gScore.get(neighbor) || Infinity)) {
-                        cameFrom.set(neighbor, current);
-                        gScore.set(neighbor, tentative_gScore);
-                        const h = (neighbor.latlng.distanceTo(endNode.latlng) / 15000);
-                        fScore.set(neighbor, tentative_gScore + h);
-                        if (!openSet.includes(neighbor)) openSet.push(neighbor);
-                    }
+            let neighbors = graph.filter(n => {
+                let d = current.node.latlng.distanceTo(n.latlng);
+                return d > 200 && d < MAX_HOP_KM * 1000;
+            });
+            neighbors.sort((a,b) => a.latlng.distanceTo(end.latlng) - b.latlng.distanceTo(end.latlng));
+            
+            for(let i=0; i<Math.min(neighbors.length, 10); i++) {
+                let neighbor = neighbors[i];
+                let key = neighbor.latlng.lat + "," + neighbor.latlng.lng;
+                if (closed.has(key)) continue;
+                
+                let link = await analyzeLink(current.node.latlng, neighbor.latlng);
+                if (link.clear) {
+                    let moveCost = current.node.latlng.distanceTo(neighbor.latlng);
+                    if (roadBias && !neighbor.isRoad) moveCost *= 10; 
+                    let newG = current.g + moveCost;
+                    let newF = newG + neighbor.latlng.distanceTo(end.latlng);
+                    open.push({ node: neighbor, g: newG, f: newF, path: [...current.path, neighbor] });
+                    closed.add(key);
                 }
             }
         }
         return null;
     }
 
-    function reconstructPath(cameFrom, current) {
-        let totalPath = [];
-        while (cameFrom.has(current)) {
-            if (current.id !== 'end') totalPath.unshift(current); 
-            current = cameFrom.get(current);
-        }
-        return totalPath;
-    }
-
-    async function fetchLocalRoads() {
-        let bounds;
-        if (nodes.length > 0) {
-             const lats = nodes.map(n => n.latlng.lat);
-             const lngs = nodes.map(n => n.latlng.lng);
-             const buffer = 0.25; 
-             bounds = {
-                 getSouth: () => Math.min(...lats) - buffer,
-                 getNorth: () => Math.max(...lats) + buffer,
-                 getWest: () => Math.min(...lngs) - buffer,
-                 getEast: () => Math.max(...lngs) + buffer
-             };
-        } else {
-             bounds = map.getBounds();
+    function deployPath(path, target) {
+        let bestSrc = nodes[0];
+        let minD = Infinity;
+        let firstPt = path.length > 0 ? path[0] : target;
+        
+        [...nodes.slice(0,1), ...nodes.slice(1).filter(n=>connectedNodeIds.has(n.id)), ...repeaters].forEach(n => {
+             let d = n.latlng.distanceTo(firstPt.latlng);
+             if (d < minD) { minD = d; bestSrc = n; }
+        });
+        
+        let lastPos = bestSrc.latlng;
+        
+        if (path.length === 0) {
+             drawLink(bestSrc.latlng, target.latlng, '#2ecc71');
+             log("Direct link: " + bestSrc.id + " -> " + target.id);
+             return;
         }
 
-        const query = `[out:json];way["highway"~"primary|secondary|tertiary|motorway|trunk|unclassified|residential|track"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});(._;>;);out body;`;
-        try {
-            const resp = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
-            const data = await resp.json();
-            roadPoints = data.elements.filter(e => e.type === 'node').map(e => L.latLng(e.lat, e.lon));
-            logToMesh(`Road data loaded: ${roadPoints.length} points.`);
-        } catch(e) { 
-            logToMesh("Road data fetch failed or empty.");
-            roadPoints = []; 
+        path.forEach(pt => {
+             let type = pt.isRoad ? 'ROAD' : 'PEAK';
+             let color = pt.isRoad ? '#3498db' : '#e67e22'; 
+             let icon = L.divIcon({ className: pt.isRoad ? 'road-pulse' : 'repeater-pulse', html: rCounter++, iconSize: [24,24] });
+             let rMarker = L.marker(pt.latlng, {icon: icon}).addTo(map);
+             rMarker.bindTooltip(`R${rCounter-1} (${type})`);
+             repeaters.push({ latlng: pt.latlng, marker: rMarker, id: 'R'+(rCounter-1) });
+             drawLink(lastPos, pt.latlng, '#f1c40f');
+             lastPos = pt.latlng;
+        });
+
+        drawLink(lastPos, target.latlng, '#f1c40f');
+        log(`Chain deployed to ${target.id} (${path.length} hops).`);
+    }
+
+    function drawLink(p1, p2, color) {
+        let line = L.polyline([p1, p2], { color: color, weight: 3, opacity: 0.8 }).addTo(map);
+        line.on('click', () => showProfile(p1, p2));
+        links.push(line);
+    }
+
+    function setBusy(isBusy, msg, percent) {
+        let el = document.getElementById('processing-overlay');
+        el.style.display = isBusy ? 'flex' : 'none';
+        if(msg) document.getElementById('proc-label').innerText = msg;
+        if(percent) document.getElementById('proc-fill').style.width = percent + '%';
+    }
+
+    function updateStatus(msg, badgeTxt, badgeColor) {
+        document.getElementById('mesh-log').innerText = msg;
+        if(badgeTxt) {
+            let b = document.getElementById('status-badge');
+            b.innerText = badgeTxt;
+            b.style.background = badgeColor;
+            b.style.color = 'white';
         }
     }
-
-    function findClosestRoad(pt) {
-        if (!roadPoints.length) return null;
-        let minD = Infinity, match = null;
-        const step = Math.floor(roadPoints.length / 1000) + 1;
-        for (let i = 0; i < roadPoints.length; i+=step) {
-            const rp = roadPoints[i];
-            const d = pt.distanceTo(rp);
-            if (d < minD) { minD = d; match = rp; }
-            if (minD < 50) break;
-        }
-        return match;
+    
+    function log(msg) {
+        let l = document.getElementById('mesh-log');
+        l.innerHTML = `<div>> ${msg}</div>` + l.innerHTML;
+    }
+    
+    function resetMap() {
+        location.reload();
+    }
+    
+    function resetMapOnly() {
+        location.reload();
     }
 
-    function createRepeater(data) {
-        const existing = repeaters.find(r => r.latlng.distanceTo(data.latlng) < 100);
-        if (existing) return existing;
-        
-        const isOverBudget = repeaterCounter > repeaterBudget + 1;
-        const pulseClass = isOverBudget || !data.isRoadside ? 'desperation-pulse' : 'repeater-pulse';
-        
-        const icon = L.divIcon({ className: pulseClass, html: `<span>${repeaterCounter++}</span>`, iconSize: [26, 26] });
-        const marker = L.marker(data.latlng, { icon }).addTo(map);
-        const rep = { latlng: data.latlng, marker, id: `R${repeaterCounter-1}`, roadside: data.isRoadside };
-        repeaters.push(rep);
-        
-        if (isOverBudget) logToMesh(`EXTRA RELAY ${rep.id} added.`);
-        if (!data.isRoadside) logToMesh(`RELAY ${rep.id} IS OFF-ROAD.`);
-        
-        return rep;
+    function closeProfile() {
+        document.getElementById('profile-viewer').style.display = 'none';
     }
-
-    async function calculatePath(p1, p2) {
-        const dist = p1.distanceTo(p2);
-        const samples = 30; 
-        let minClearance = 100, points = [];
-        const h1 = await getElevation(p1.lat, p1.lng) + ANT_H;
-        const h2 = await getElevation(p2.lat, p2.lng) + ANT_H;
-
-        for (let i = 0; i <= samples; i++) {
-            const f = i / samples;
-            const lat = p1.lat + (p2.lat - p1.lat) * f;
-            const lng = p1.lng + (p2.lng - p1.lng) * f;
-            const terrainH = await getElevation(lat, lng);
-            const d1 = dist * f;
-            const d2 = dist * (1 - f);
-            const curv = (d1 * d2) / (2 * EARTH_K * EARTH_R * 1000);
-            const fRadius = 17.32 * Math.sqrt(((d1/1000)*(d2/1000))/(FREQ_GHZ*(dist/1000 + 0.001)));
-            const rayH = h1 + (h2 - h1) * f - curv;
-            const clearance = (rayH - terrainH) / (fRadius || 1);
-            if (clearance < minClearance) minClearance = clearance;
-            points.push({ terrainH, rayH, fRadius, dist: d1 });
-        }
-        return { 
-            color: minClearance < 0 ? COLORS.danger : (minClearance < 0.3 ? COLORS.warning : COLORS.success), 
-            clearance: minClearance, 
-            points, 
-            dist,
-            latlngs: [p1, p2]
-        };
-    }
-
-    async function drawInteractiveLink(p1, p2) {
-        const key = [p1.lat.toFixed(5), p1.lng.toFixed(5), p2.lat.toFixed(5), p2.lng.toFixed(5)].sort().join(',');
-        if (existingLinkKeys.has(key)) return;
-        const path = await calculatePath(p1, p2);
-        existingLinkKeys.add(key);
-        activeLinks.push(path);
-        const poly = L.polyline([p1, p2], { color: path.color, weight: 4, opacity: 0.85 }).addTo(map);
-        poly.on('click', (e) => { L.DomEvent.stopPropagation(e); showProfile(path); });
-        polylines.push(poly);
-    }
-
-    function showProfile(path) {
-        const panel = document.getElementById('profile-viewer');
-        const canvas = document.getElementById('profile-canvas');
-        panel.style.display = 'block';
-        document.getElementById('stat-dist').innerText = `Distance: ${(path.dist / 1000).toFixed(2)} km`;
-        document.getElementById('stat-clear').innerText = `Fresnel Clear: ${Math.max(0, Math.round(path.clearance * 100))}%`;
-        const start = path.latlngs[0];
-        const end = path.latlngs[1];
-        document.getElementById('stat-coords').innerText = `Path: ${start.lat.toFixed(3)},${start.lng.toFixed(3)} to ${end.lat.toFixed(3)},${end.lng.toFixed(3)}`;
-
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width = canvas.offsetWidth;
-        const h = canvas.height = canvas.offsetHeight;
-        const allHeights = path.points.flatMap(p => [p.terrainH, p.rayH + p.fRadius, p.rayH - p.fRadius]);
-        const minH = Math.min(...allHeights) - 10;
-        const maxH = Math.max(...allHeights) + 10;
-        const range = maxH - minH;
-        const getY = (v) => h - ((v - minH) / range) * h;
-        const getX = (d) => (d / path.dist) * w;
-        
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = 'rgba(52, 152, 219, 0.15)';
-        ctx.beginPath();
-        path.points.forEach((p, i) => { if (i === 0) ctx.moveTo(getX(p.dist), getY(p.rayH + p.fRadius)); else ctx.lineTo(getX(p.dist), getY(p.rayH + p.fRadius)); });
-        for (let i = path.points.length - 1; i >= 0; i--) ctx.lineTo(getX(path.points[i].dist), getY(path.points[i].rayH - path.points[i].fRadius));
-        ctx.closePath(); ctx.fill();
-        
-        ctx.fillStyle = '#95a5a6';
-        ctx.beginPath(); ctx.moveTo(0, h);
-        path.points.forEach(p => ctx.lineTo(getX(p.dist), getY(p.terrainH)));
-        ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
-        
-        ctx.strokeStyle = '#2c3e50'; ctx.setLineDash([2, 4]);
-        ctx.beginPath(); ctx.moveTo(0, getY(path.points[0].rayH)); ctx.lineTo(w, getY(path.points[path.points.length-1].rayH)); ctx.stroke();
-    }
-
+    
     function exportKML() {
         let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Roadside Mesh Plan</name>`;
         nodes.forEach((n, i) => kml += `<Placemark><name>${i === 0 ? 'Command Center' : 'Point ' + i}</name><Point><coordinates>${n.latlng.lng},${n.latlng.lat},0</coordinates></Point></Placemark>`);
-        repeaters.forEach((r) => kml += `<Placemark><name>Relay ${r.id}${r.overBudget ? ' (EXTRA)' : ''}</name><Point><coordinates>${r.latlng.lng},${r.latlng.lat},0</coordinates></Point></Placemark>`);
+        repeaters.forEach((r) => kml += `<Placemark><name>Relay ${r.id}</name><Point><coordinates>${r.latlng.lng},${r.latlng.lat},0</coordinates></Point></Placemark>`);
         kml += `</Document></kml>`;
         const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'roadside_mesh.kml'; a.click();
     }
 
-    function resetApp() { location.reload(); }
-    function resetMapOnly() {
-        nodes.forEach(n => map.removeLayer(n.marker));
-        repeaters.forEach(r => map.removeLayer(r.marker));
-        polylines.forEach(p => map.removeLayer(p));
-        nodes = []; repeaters = []; polylines = []; existingLinkKeys.clear(); connectedNodeIds.clear(); activeLinks = [];
-        currentStep = 'BASE';
-        document.getElementById('add-node-btn').style.display = 'flex';
-        document.getElementById('calc-btn').style.display = 'none';
-        document.getElementById('export-btn').disabled = true;
-        document.getElementById('mesh-summary').style.display = 'none';
-        updateUI('Set Command Center', 'STEP 1', '#eee');
+    function showProfile(p1, p2) {
+        document.getElementById('profile-viewer').style.display = 'block';
+        let ctx = document.getElementById('profile-canvas').getContext('2d');
+        ctx.clearRect(0,0,300,150);
+        ctx.fillStyle = '#f4f4f4'; ctx.fillRect(0,0,300,150);
+        ctx.fillStyle = '#666'; ctx.fillText("Profile View Placeholder", 80, 75);
     }
-    function closeProfile() { document.getElementById('profile-viewer').style.display = 'none'; }
-    function updateUI(sub, step, color) {
-        document.getElementById('ui-subtitle').innerText = sub;
-        const badge = document.getElementById('step-badge');
-        badge.innerText = step; badge.style.background = color;
+    
+    // --- VIEWSHED LOGIC ---
+    function toggleViewshed() {
+        viewshedMode = !viewshedMode;
+        if(viewshedMode) {
+             updateStatus("Tap map to see Coverage Cloak", "VIEWSHED", COLORS.accent);
+             renderAllViewsheds();
+        } else {
+             if(activeViewshedLayer) map.removeLayer(activeViewshedLayer);
+             updateStatus("Resume Planning", "READY", COLORS.meshBlue);
+        }
     }
-    function logToMesh(msg) {
-        const log = document.getElementById('mesh-log');
-        log.innerHTML = `<div>> ${msg}</div>` + log.innerHTML;
-        log.scrollTop = 0;
+
+    async function renderAllViewsheds() {
+        if(activeViewshedLayer) map.removeLayer(activeViewshedLayer);
+        setBusy(true, "Initializing Coverage Scan...");
+        await new Promise(r => setTimeout(r, 50));
+        
+        activeViewshedLayer = L.layerGroup({pane: 'viewshedPane'});
+        
+        // 1. Base + Field Nodes + Repeaters
+        let allDevices = [...nodes, ...repeaters];
+
+        if (allDevices.length === 0) {
+            setBusy(false);
+            return;
+        }
+
+        for (let i = 0; i < allDevices.length; i++) {
+            let device = allDevices[i];
+            let name = device.type === 'BASE' ? 'Base Station' : (device.id.toString().startsWith('R') ? `Relay ${device.id}` : `Node ${device.id}`);
+            
+            setBusy(true, `Scanning Coverage: ${name}...`, (i / allDevices.length) * 100);
+            await new Promise(r => setTimeout(r, 10)); // Yield to UI
+            
+            let color = VIEWSHED_PALETTE[i % VIEWSHED_PALETTE.length];
+            let pts = await computeRadialViewshed(device.latlng, 20000);
+            
+            pts.forEach(pt => {
+                L.circleMarker(pt, { 
+                    radius: 1, 
+                    stroke: false, 
+                    fillOpacity: 0.5, 
+                    fillColor: color, 
+                    interactive: false 
+                }).addTo(activeViewshedLayer);
+            });
+        }
+        
+        activeViewshedLayer.addTo(map);
+        setBusy(false);
+        updateStatus("Multi-Color Coverage Active", "VISIBLE", COLORS.accent);
     }
+
+    async function renderViewshed(latlng) {
+         // Single click viewshed logic (retained for manual checks)
+         if(activeViewshedLayer) map.removeLayer(activeViewshedLayer);
+         setBusy(true, "Computing Single Cloak...");
+         await new Promise(r => setTimeout(r, 50));
+         
+         let visiblePoints = await computeRadialViewshed(latlng, 20000);
+         activeViewshedLayer = L.layerGroup({pane: 'viewshedPane'});
+         visiblePoints.forEach(pt => {
+              L.circleMarker(pt, { radius: 1, stroke: false, fillOpacity: 0.8, fillColor: 'red', interactive: false }).addTo(activeViewshedLayer);
+         });
+         activeViewshedLayer.addTo(map);
+         setBusy(false);
+    }
+
+    async function computeRadialViewshed(center, radiusMeters) {
+        // 720 rays = 0.5 degree res
+        const sourceAlt = await getElevation(center.lat, center.lng) + ANT_H;
+        let visiblePoints = [];
+        const rays = 720; 
+        const stepSize = 100; 
+
+        for (let angle = 0; angle < 360; angle += (360/rays)) {
+            if (angle % 20 === 0) await new Promise(r => setTimeout(r, 0)); 
+
+            const rad = angle * (Math.PI / 180);
+            let maxAngle = -9999; 
+            
+            for (let d = stepSize; d <= radiusMeters; d += stepSize) {
+                const lat = center.lat + (d * Math.cos(rad) / 111320);
+                const lng = center.lng + (d * Math.sin(rad) / (111320 * Math.cos(center.lat * (Math.PI/180))));
+                
+                const terrainAlt = await getElevation(lat, lng);
+                const curvatureDrop = (d * d) / (2 * EARTH_K * EARTH_R * 1000);
+                const heightDiff = terrainAlt - sourceAlt - curvatureDrop;
+                const elevationAngle = Math.atan(heightDiff / d);
+
+                if (elevationAngle >= maxAngle) {
+                    maxAngle = elevationAngle;
+                    visiblePoints.push(L.latLng(lat, lng));
+                }
+            }
+        }
+        return visiblePoints;
+    }
+
     window.onload = init;
 </script>
 </body>
